@@ -3,7 +3,7 @@ import requests
 import os
 import sys
 import json
-import time # Necessario per gestire il timeout
+import random
 
 # Recupera le variabili d'ambiente
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -20,9 +20,18 @@ if missing_vars:
     print(f"Errore: le seguenti variabili d'ambiente non sono impostate: {', '.join(missing_vars)}")
     sys.exit(1)
 
-# Configurazione Cooldown (5 minuti = 300 secondi)
-COOLDOWN_SECONDS = 300
-last_message_time = 0 
+# Pool di GIF personalizzato
+GIF_POOL = [
+    "https://gifdb.com/images/high/sailor-moon-sailor-scouts-3tih4dlavgr6x5pa.gif",
+    "https://i.makeagif.com/media/12-14-2022/ka2PIJ.gif",
+    "https://i.pinimg.com/originals/a3/83/1e/a3831e928fdac37166b823b8a7b8efab.gif",
+    "https://media.tenor.com/c0WNBHq-K58AAAAM/anime-memes.gif",
+    "https://i.makeagif.com/media/9-08-2015/cCez20.gif",
+    "https://latanadiachernar.wordpress.com/wp-content/uploads/2018/03/oscar6.gif",
+    "https://i.makeagif.com/media/3-21-2020/EpemtZ.gif",
+    "https://media.tenor.com/qy0292ijpOkAAAAM/tiger-mask-tiger-man.gif",
+    "https://animesher.com/orig/1/197/1977/19770/animesher.com_revolutionary-girl-utena-pretty-gif-1977086.gif"
+]
 
 # Configura gli intents di Discord
 intents = discord.Intents.default()
@@ -36,22 +45,14 @@ async def on_ready():
 
 @client.event
 async def on_voice_state_update(member, before, after):
-    global last_message_time
-    
-    # Rileva quando qualcuno entra in un canale vocale (e prima non c'era)
+    # Rileva quando qualcuno entra in un canale vocale (e prima non era in nessun canale)
     if before.channel is None and after.channel is not None:
         
-        current_time = time.time()
-        
-        # Controlla se sono passati almeno 300 secondi dall'ultimo messaggio
-        if current_time - last_message_time < COOLDOWN_SECONDS:
-            print("Evento ignorato: cooldown attivo.")
-            return
-
         # 1. Configurazione Messaggio e Media
         discord_link = "https://discord.gg/wYfvyWEK6c"
-        gif_url = "https://gifdb.com/images/high/sailor-moon-sailor-scouts-3tih4dlavgr6x5pa.gif"
-        # Rimossi Aleksis e Flavia come richiesto
+        selected_gif_url = random.choice(GIF_POOL)
+        
+        # Nickname Telegram aggiornati
         usernames = "@LordMacbeth @Ardentsideburns @I_M_81 @tedoli @RobertoMaurizzi @LkMsWb @Luinmir @Kyarushiro @Fumettoillogic"
         
         caption = (
@@ -67,22 +68,20 @@ async def on_voice_state_update(member, before, after):
             ]]
         }
 
-        # 3. Invio tramite sendAnimation
+        # 3. Invio tramite sendAnimation (gestisce le GIF come video animati)
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendAnimation"
         
         try:
             response = requests.post(url, data={
                 "chat_id": TELEGRAM_CHAT_ID,
-                "animation": gif_url,
+                "animation": selected_gif_url,
                 "caption": caption,
                 "parse_mode": "HTML",
                 "reply_markup": json.dumps(reply_markup)
             })
             
             if response.ok:
-                # Aggiorna l'orario dell'ultimo invio riuscito
-                last_message_time = current_time
-                print("Messaggio Telegram inviato correttamente.")
+                print(f"Messaggio inviato con GIF: {selected_gif_url}")
             else:
                 print(f"Errore invio Telegram: {response.text}")
                 
