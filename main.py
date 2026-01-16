@@ -34,7 +34,7 @@ async def on_ready():
 @client.event
 async def on_voice_state_update(member, before, after):
     if before.channel is None and after.channel is not None:
-        message = f"🔊 Chat vocale attiva su Discord!\nCanale: {after.channel.name} - UNISCITI ANCHE TU https://discord.gg/wYfvyWEK6c"
+        message = f"🔊 Chat vocale attiva su Discord!\nCanale: {after.channel.name} - UNISCITI ANCHE TU https://discord.gg/wYfvyWEK6c @LordMacbeth @Ardentsideburns @I_M_81 Aleksis Flavia @tedoli @RobertoMaurizzi @LkMsWb @Luinmir @Kyarushiro @Fumettoillogic https://gifdb.com/images/high/sailor-moon-sailor-scouts-3tih4dlavgr6x5pa.gif"
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         try:
             response = requests.post(url, data={
