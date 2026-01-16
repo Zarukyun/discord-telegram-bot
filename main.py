@@ -1,5 +1,5 @@
 import discord
-from discord.ext import tasks # Necessario per il ciclo ogni 30 min
+from discord.ext import tasks
 import requests
 import os
 import sys
@@ -11,7 +11,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 DISCORD_LINK = "https://discord.gg/wYfvyWEK6c"
-USERNAMES = "@LordMacbeth @Ardentsideburns @I_M_81 @tedoli @RobertoMaurizzi @LkMsWb @Luinmir @Kyarushiro @Fumettoillogic"
+USERNAMES = "@LordMacbeth @Ardentsideburns @I_M_81 @tedoli @RobertoMaurizzi @LkMsWb @Luinmir @Kyarushiro @F_Fumettoillogic"
 
 GIF_POOL = [
     "https://gifdb.com/images/high/sailor-moon-sailor-scouts-3tih4dlavgr6x5pa.gif",
@@ -33,21 +33,22 @@ intents = discord.Intents.default()
 intents.voice_states = True
 client = discord.Client(intents=intents)
 
-# Variabile per tracciare lo stato della chiamata
 current_voice_channel = None
 
-def send_telegram_media(caption, gif_url=None):
-    """Funzione di supporto per inviare messaggi su Telegram"""
+def send_telegram(caption, gif_url=None, show_button=True):
+    """Gestisce l'invio di messaggi con o senza pulsante e GIF"""
     method = "sendAnimation" if gif_url else "sendMessage"
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/{method}"
     
-    reply_markup = {"inline_keyboard": [[{"text": "🚀 UNISCITI ORA", "url": DISCORD_LINK}]]}
-    
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
-        "parse_mode": "HTML",
-        "reply_markup": json.dumps(reply_markup)
+        "parse_mode": "HTML"
     }
+    
+    # Aggiunge il bottone solo se richiesto
+    if show_button:
+        reply_markup = {"inline_keyboard": [[{"text": "🚀 UNISCITI ORA", "url": DISCORD_LINK}]]}
+        payload["reply_markup"] = json.dumps(reply_markup)
     
     if gif_url:
         payload["animation"] = gif_url
@@ -65,37 +66,42 @@ def send_telegram_media(caption, gif_url=None):
 async def check_still_in_call():
     global current_voice_channel
     if current_voice_channel:
-        # Controlla se c'è ancora qualcuno nel canale
         if len(current_voice_channel.members) > 0:
-            msg = f"⏳ <b>SIAMO ANCORA IN CHIAMATA!</b>\nCanale: <b>{current_voice_channel.name.upper()}</b>\n\nNon farti pregare, entra! {USERNAMES}"
-            send_telegram_media(msg, random.choice(GIF_POOL))
+            msg = f"⏳ <b>SIAMO ANCORA IN CHIAMATA!</b>\nCanale: <b>{current_voice_channel.name.upper()}</b>\n\nDai muovetevi! {USERNAMES}"
+            send_telegram(msg, random.choice(GIF_POOL), show_button=True)
         else:
-            current_voice_channel = None # Reset se il canale è vuoto
+            current_voice_channel = None
 
 @client.event
 async def on_ready():
     print(f"Bot avviato come {client.user}")
-    check_still_in_call.start() # Avvia il ciclo temporizzato
+    if not check_still_in_call.is_running():
+        check_still_in_call.start()
 
 @client.event
 async def on_voice_state_update(member, before, after):
     global current_voice_channel
 
-    # INIZIO CHIAMATA: Qualcuno entra e prima non c'era nessuno in nessun canale
+    # INIZIO O NUOVO INGRESSO
     if before.channel is None and after.channel is not None:
-        # Se è il primo ad entrare in assoluto (o dopo che il canale era vuoto)
+        # Se è il primo in assoluto a creare la sessione
         if len(after.channel.members) == 1:
             current_voice_channel = after.channel
-            msg = f"🚨 <b>VOCALE ATTIVA SU DISCORD</b> 🚨\nCanale: <b>{after.channel.name.upper()}</b>\n\n📢 {USERNAMES}"
-            send_telegram_media(msg, random.choice(GIF_POOL))
+            msg = (f"🚨 <b>VOCALE ATTIVA SU DISCORD</b> 🚨\n"
+                   f"Canale: <b>{after.channel.name.upper()}</b>\n"
+                   f"Iniziata da: <b>{member.display_name}</b>\n\n"
+                   f"📢 {USERNAMES}")
+            send_telegram(msg, random.choice(GIF_POOL), show_button=True)
+        else:
+            # Opzionale: se vuoi un avviso per ogni persona che entra (senza taggare tutti)
+            print(f"{member.display_name} si è unito alla chiamata.")
 
-    # FINE CHIAMATA: Qualcuno esce
+    # FINE CHIAMATA
     if before.channel is not None and after.channel is None:
-        # Se il canale che è stato appena lasciato è ora vuoto
         if len(before.channel.members) == 0:
             current_voice_channel = None
             msg = "😴 <b>LA CHAT VOCALE È FINITA</b>\nPer oggi è tutto, ci si vede alla prossima! 👋"
-            # Per la fine chiamata inviamo solo testo, senza GIF (opzionale)
-            send_telegram_media(msg)
+            # show_button=False rimuove il tasto "Unisciti ora"
+            send_telegram(msg, show_button=False)
 
 client.run(DISCORD_TOKEN)
