@@ -34,7 +34,7 @@ async def on_ready():
 @client.event
 async def on_voice_state_update(member, before, after):
     if before.channel is None and after.channel is not None:
-        message = f"🔊 Chat vocale attiva su Discord!\nCanale: {after.channel.name}"
+        message = f"🔊 Chat vocale attiva su Discord!\nCanale: {after.channel.name} - UNISCITI ANCHE TU https://discord.gg/wYfvyWEK6c"
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         try:
             response = requests.post(url, data={
