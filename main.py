@@ -2,9 +2,9 @@ import discord
 import requests
 import os
 
-DISCORD_TOKEN = os.getenv("MTQzNTM5MTYwOTk2NDU5NzM1Mg.GMMNVc.g9FFtezxr12dij_Hh981gu3xM_ZSWl9QJmOW_I")
-TELEGRAM_TOKEN = os.getenv("8463652179:AAFGAV3sj70fjpIc7nqtd_0SD6ZzsyH6Z_o")
-TELEGRAM_CHAT_ID = os.getenv("1002369421733")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 intents = discord.Intents.default()
 intents.voice_states = True
