@@ -1,26 +1,18 @@
 import discord
+from discord.ext import tasks # Necessario per il ciclo ogni 30 min
 import requests
 import os
 import sys
 import json
 import random
 
-# Recupera le variabili d'ambiente
+# --- CONFIGURAZIONE ---
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+DISCORD_LINK = "https://discord.gg/wYfvyWEK6c"
+USERNAMES = "@LordMacbeth @Ardentsideburns @I_M_81 @tedoli @RobertoMaurizzi @LkMsWb @Luinmir @Kyarushiro @Fumettoillogic"
 
-# Controlla che tutte le variabili siano presenti
-missing_vars = []
-if DISCORD_TOKEN is None: missing_vars.append("DISCORD_TOKEN")
-if TELEGRAM_TOKEN is None: missing_vars.append("TELEGRAM_TOKEN")
-if TELEGRAM_CHAT_ID is None: missing_vars.append("TELEGRAM_CHAT_ID")
-
-if missing_vars:
-    print(f"Errore: le seguenti variabili d'ambiente non sono impostate: {', '.join(missing_vars)}")
-    sys.exit(1)
-
-# Pool di GIF personalizzato
 GIF_POOL = [
     "https://gifdb.com/images/high/sailor-moon-sailor-scouts-3tih4dlavgr6x5pa.gif",
     "https://i.makeagif.com/media/12-14-2022/ka2PIJ.gif",
@@ -33,60 +25,77 @@ GIF_POOL = [
     "https://animesher.com/orig/1/197/1977/19770/animesher.com_revolutionary-girl-utena-pretty-gif-1977086.gif"
 ]
 
-# Configura gli intents di Discord
+if not all([DISCORD_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]):
+    print("Errore: Variabili d'ambiente mancanti.")
+    sys.exit(1)
+
 intents = discord.Intents.default()
 intents.voice_states = True
-
 client = discord.Client(intents=intents)
+
+# Variabile per tracciare lo stato della chiamata
+current_voice_channel = None
+
+def send_telegram_media(caption, gif_url=None):
+    """Funzione di supporto per inviare messaggi su Telegram"""
+    method = "sendAnimation" if gif_url else "sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/{method}"
+    
+    reply_markup = {"inline_keyboard": [[{"text": "🚀 UNISCITI ORA", "url": DISCORD_LINK}]]}
+    
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "parse_mode": "HTML",
+        "reply_markup": json.dumps(reply_markup)
+    }
+    
+    if gif_url:
+        payload["animation"] = gif_url
+        payload["caption"] = caption
+    else:
+        payload["text"] = caption
+
+    try:
+        requests.post(url, data=payload)
+    except Exception as e:
+        print(f"Errore Telegram: {e}")
+
+# --- LOOP OGNI 30 MINUTI ---
+@tasks.loop(minutes=30)
+async def check_still_in_call():
+    global current_voice_channel
+    if current_voice_channel:
+        # Controlla se c'è ancora qualcuno nel canale
+        if len(current_voice_channel.members) > 0:
+            msg = f"⏳ <b>SIAMO ANCORA IN CHIAMATA!</b>\nCanale: <b>{current_voice_channel.name.upper()}</b>\n\nNon farti pregare, entra! {USERNAMES}"
+            send_telegram_media(msg, random.choice(GIF_POOL))
+        else:
+            current_voice_channel = None # Reset se il canale è vuoto
 
 @client.event
 async def on_ready():
     print(f"Bot avviato come {client.user}")
+    check_still_in_call.start() # Avvia il ciclo temporizzato
 
 @client.event
 async def on_voice_state_update(member, before, after):
-    # Rileva quando qualcuno entra in un canale vocale (e prima non era in nessun canale)
+    global current_voice_channel
+
+    # INIZIO CHIAMATA: Qualcuno entra e prima non c'era nessuno in nessun canale
     if before.channel is None and after.channel is not None:
-        
-        # 1. Configurazione Messaggio e Media
-        discord_link = "https://discord.gg/wYfvyWEK6c"
-        selected_gif_url = random.choice(GIF_POOL)
-        
-        # Nickname Telegram aggiornati
-        usernames = "@LordMacbeth @Ardentsideburns @I_M_81 @tedoli @RobertoMaurizzi @LkMsWb @Luinmir @Kyarushiro @Fumettoillogic"
-        
-        caption = (
-            f"🚨 <b>VOCALE ATTIVA SU DISCORD</b> 🚨\n\n"
-            f"Canale: <b>{after.channel.name.upper()}</b>\n\n"
-            f"📢 {usernames}"
-        )
+        # Se è il primo ad entrare in assoluto (o dopo che il canale era vuoto)
+        if len(after.channel.members) == 1:
+            current_voice_channel = after.channel
+            msg = f"🚨 <b>VOCALE ATTIVA SU DISCORD</b> 🚨\nCanale: <b>{after.channel.name.upper()}</b>\n\n📢 {USERNAMES}"
+            send_telegram_media(msg, random.choice(GIF_POOL))
 
-        # 2. Creazione del Bottone Inline
-        reply_markup = {
-            "inline_keyboard": [[
-                {"text": "🚀 UNISCITI ORA", "url": discord_link}
-            ]]
-        }
+    # FINE CHIAMATA: Qualcuno esce
+    if before.channel is not None and after.channel is None:
+        # Se il canale che è stato appena lasciato è ora vuoto
+        if len(before.channel.members) == 0:
+            current_voice_channel = None
+            msg = "😴 <b>LA CHAT VOCALE È FINITA</b>\nPer oggi è tutto, ci si vede alla prossima! 👋"
+            # Per la fine chiamata inviamo solo testo, senza GIF (opzionale)
+            send_telegram_media(msg)
 
-        # 3. Invio tramite sendAnimation (gestisce le GIF come video animati)
-        url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendAnimation"
-        
-        try:
-            response = requests.post(url, data={
-                "chat_id": TELEGRAM_CHAT_ID,
-                "animation": selected_gif_url,
-                "caption": caption,
-                "parse_mode": "HTML",
-                "reply_markup": json.dumps(reply_markup)
-            })
-            
-            if response.ok:
-                print(f"Messaggio inviato con GIF: {selected_gif_url}")
-            else:
-                print(f"Errore invio Telegram: {response.text}")
-                
-        except Exception as e:
-            print(f"Eccezione invio Telegram: {e}")
-
-# Avvia il bot Discord
 client.run(DISCORD_TOKEN)
